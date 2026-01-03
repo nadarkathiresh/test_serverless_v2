@@ -1,3 +1,7 @@
 torch
 transformers
 runpod
+scikit-learn
+sentencepiece
+accelerate
+safetensors
