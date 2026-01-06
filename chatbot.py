@@ -7,7 +7,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-MODEL_NAME = os.environ.get("LLAMA_MODEL", "meta-llama/Llama-3.2-1B")
+MODEL_NAME = os.environ.get("LLAMA_MODEL", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
 CONTEXT_FILE = os.environ.get("CONTEXT_FILE", "product_info.txt")
 
 
@@ -83,6 +83,13 @@ def load_llm_pipeline():
     # Read token for gated repos (e.g., Llama 3.2). HF Hub honors env var automatically,
     # but we also pass it explicitly for robustness.
     hf_token = os.environ.get("HUGGING_FACE_HUB_TOKEN") or os.environ.get("HF_TOKEN")
+    
+    # Debug: Log token presence (not the actual token for security)
+    print(f"[DEBUG] Loading model: {MODEL_NAME}")
+    print(f"[DEBUG] HF Token present: {bool(hf_token)}")
+    if hf_token:
+        print(f"[DEBUG] Token prefix: {hf_token[:7]}...")
+    
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_NAME,
         use_fast=True,
