@@ -80,11 +80,19 @@ def load_llm_pipeline():
     Uses float16 when possible; falls back to float32 on CPU-only environments.
     """
     dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
+    # Read token for gated repos (e.g., Llama 3.2). HF Hub honors env var automatically,
+    # but we also pass it explicitly for robustness.
+    hf_token = os.environ.get("HUGGING_FACE_HUB_TOKEN") or os.environ.get("HF_TOKEN")
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME,
+        use_fast=True,
+        token=hf_token,
+    )
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         torch_dtype=dtype,
         device_map="auto" if torch.cuda.is_available() else None,
+        token=hf_token,
     )
     # Ensure pad token id is set to eos if undefined to avoid warnings
     if tokenizer.pad_token_id is None and tokenizer.eos_token_id is not None:
