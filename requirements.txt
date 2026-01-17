@@ -6,3 +6,4 @@ sentencepiece
 accelerate
 safetensors
 bitsandbytes
+flash-attn

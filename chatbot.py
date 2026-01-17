@@ -103,12 +103,13 @@ def load_llm_pipeline():
     )
     # Use 4-bit quantization on GPU for 2-3x speedup
     if cuda_available:
-        print("[SETUP] Loading model in 4-bit mode...")
+        print("[SETUP] Loading model in 4-bit mode with Flash Attention 2...")
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME,
             load_in_4bit=True,
             device_map="auto",
             token=hf_token,
+            attn_implementation="flash_attention_2",  # 2x faster attention
         )
         print(f"[SETUP] Model loaded on: {model.device}")
     else:
@@ -168,8 +169,8 @@ def chatbot_handler(event):
     if not question:
         return {"error": "No 'question' provided in input."}
 
-    top_k = int(input_payload.get("top_k", 2))  # Reduced from 3 for faster prompts
-    max_new_tokens = int(input_payload.get("max_new_tokens", 100))  # Reduced for speed
+    top_k = int(input_payload.get("top_k", 1))  # Single chunk for fastest retrieval
+    max_new_tokens = int(input_payload.get("max_new_tokens", 50))  # Short answers for speed
     temperature = float(input_payload.get("temperature", 0.3))
 
     # Retrieval timing
