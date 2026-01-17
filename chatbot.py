@@ -1,4 +1,5 @@
 import os
+import time
 import runpod
 import torch
 from typing import List, Tuple
@@ -84,23 +85,40 @@ def load_llm_pipeline():
     # but we also pass it explicitly for robustness.
     hf_token = os.environ.get("HUGGING_FACE_HUB_TOKEN") or os.environ.get("HF_TOKEN")
     
-    # Debug: Log token presence (not the actual token for security)
-    print(f"[DEBUG] Loading model: {MODEL_NAME}")
-    print(f"[DEBUG] HF Token present: {bool(hf_token)}")
-    if hf_token:
-        print(f"[DEBUG] Token prefix: {hf_token[:7]}...")
+    # System info
+    cuda_available = torch.cuda.is_available()
+    gpu_name = torch.cuda.get_device_name(0) if cuda_available else "None"
+    
+    print(f"[SETUP] Loading model: {MODEL_NAME}")
+    print(f"[SETUP] CUDA available: {cuda_available}")
+    print(f"[SETUP] GPU: {gpu_name}")
+    print(f"[SETUP] Using 4-bit quantization: {cuda_available}")
+    
+    hf_token = os.environ.get("HUGGING_FACE_HUB_TOKEN") or os.environ.get("HF_TOKEN")
     
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_NAME,
         use_fast=True,
         token=hf_token,
     )
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME,
-        torch_dtype=dtype,
-        device_map="auto" if torch.cuda.is_available() else None,
-        token=hf_token,
-    )
+    # Use 4-bit quantization on GPU for 2-3x speedup
+    if cuda_available:
+        print("[SETUP] Loading model in 4-bit mode...")
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            load_in_4bit=True,
+            device_map="auto",
+            token=hf_token,
+        )
+        print(f"[SETUP] Model loaded on: {model.device}")
+    else:
+        print("[SETUP] Loading model in CPU mode (slow)...")
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            torch_dtype=dtype,
+            device_map=None,
+            token=hf_token,
+        )
     # Ensure pad token id is set to eos if undefined to avoid warnings
     if tokenizer.pad_token_id is None and tokenizer.eos_token_id is not None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -122,24 +140,35 @@ def assemble_context_retriever():
 def chatbot_handler(event):
     global text_gen_pipeline
     global retriever_tuple
+    
+    start_time = time.time()
+    timings = {}
 
+    # Load model if needed
     if "text_gen_pipeline" not in globals():
+        load_start = time.time()
         text_gen_pipeline = load_llm_pipeline()
+        timings["model_load"] = round(time.time() - load_start, 2)
 
     if "retriever_tuple" not in globals():
+        retriever_start = time.time()
         retriever_tuple = assemble_context_retriever()
+        timings["retriever_load"] = round(time.time() - retriever_start, 2)
 
     input_payload = event.get("input", {}) or {}
     question = input_payload.get("question")
     if not question:
         return {"error": "No 'question' provided in input."}
 
-    top_k = int(input_payload.get("top_k", 3))
-    max_new_tokens = int(input_payload.get("max_new_tokens", 256))
-    temperature = float(input_payload.get("temperature", 0.2))
+    top_k = int(input_payload.get("top_k", 2))  # Reduced from 3 for faster prompts
+    max_new_tokens = int(input_payload.get("max_new_tokens", 100))  # Reduced for speed
+    temperature = float(input_payload.get("temperature", 0.3))
 
+    # Retrieval timing
+    retrieval_start = time.time()
     vectorizer, tfidf_matrix, chunks = retriever_tuple
     context_snippets = retrieve_top_k(question, vectorizer, tfidf_matrix, chunks, k=top_k)
+    timings["retrieval"] = round(time.time() - retrieval_start, 3)
 
     if not context_snippets:
         # Fall back to a safe response when nothing is retrieved
@@ -148,24 +177,33 @@ def chatbot_handler(event):
         ]
 
     prompt = format_prompt(context_snippets, question)
-
+    
+    # Generation timing
+    gen_start = time.time()
     outputs = text_gen_pipeline(
         prompt,
         max_new_tokens=max_new_tokens,
         do_sample=temperature > 0,
-        temperature=temperature,
+        temperature=temperature if temperature > 0 else None,
         top_p=0.9,
+        num_beams=1,  # Greedy/sampling only, no beam search for speed
         eos_token_id=text_gen_pipeline.tokenizer.eos_token_id,
         pad_token_id=text_gen_pipeline.tokenizer.pad_token_id,
     )
+    timings["generation"] = round(time.time() - gen_start, 2)
 
     # pipeline returns a list of dicts with 'generated_text'
     generated_text = outputs[0]["generated_text"]
     # Return only the part after "Answer:" if present
     answer = generated_text.split("Answer:", 1)[-1].strip() if "Answer:" in generated_text else generated_text.strip()
 
+    timings["total"] = round(time.time() - start_time, 2)
+    
+    print(f"[TIMING] {timings}")
+
     return {
         "answer": answer,
+        "timings": timings,
         "used_chunks": context_snippets,
         "model": MODEL_NAME,
     }

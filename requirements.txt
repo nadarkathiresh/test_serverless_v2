@@ -5,3 +5,4 @@ scikit-learn
 sentencepiece
 accelerate
 safetensors
+bitsandbytes
