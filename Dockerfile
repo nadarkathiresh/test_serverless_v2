@@ -17,8 +17,8 @@ ENV PIP_NO_CACHE_DIR=1
 RUN python -m pip install --upgrade pip setuptools wheel
 
 # Python dependencies
-# Note: extra index ensures CPU torch wheels resolve reliably in slim images
-RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+# Note: Install CUDA-enabled PyTorch for GPU acceleration
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cu121 -r requirements.txt
 
 # Make port 8080 available to the world outside this container
 EXPOSE 8080
