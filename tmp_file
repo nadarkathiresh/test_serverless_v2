@@ -1,0 +1,26 @@
+{
+  "input": {
+    "question": "What is Biplob World and who founded it?"
+  }
+}
+
+
+
+curl -X POST "https://api.runpod.ai/v2/YOUR_ENDPOINT_ID/runsync" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_RUNPOD_API_KEY" \
+  -d '{
+    "input": {
+      "question": "What is Biplob World and who founded it?"
+    }
+  }'
+
+
+  {
+  "input": {
+    "question": "What games does Biplob World offer?",
+    "top_k": 3,
+    "max_new_tokens": 200,
+    "temperature": 0.3
+  }
+}

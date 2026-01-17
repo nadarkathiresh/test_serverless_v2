@@ -122,12 +122,20 @@ def load_llm_pipeline():
     # Ensure pad token id is set to eos if undefined to avoid warnings
     if tokenizer.pad_token_id is None and tokenizer.eos_token_id is not None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
-    text_gen = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,
-        device=0 if torch.cuda.is_available() else -1,
-    )
+    
+    # When using device_map="auto" (4-bit mode), don't specify device in pipeline
+    # The pipeline will automatically use the device from the model
+    pipeline_kwargs = {
+        "task": "text-generation",
+        "model": model,
+        "tokenizer": tokenizer,
+    }
+    # Only specify device for CPU mode (no device_map used)
+    if not cuda_available:
+        pipeline_kwargs["device"] = -1
+    
+    text_gen = pipeline(**pipeline_kwargs)
+    print(f"[SETUP] Pipeline ready. Device: {text_gen.device if hasattr(text_gen, 'device') else 'auto'}")
     return text_gen
 
 
