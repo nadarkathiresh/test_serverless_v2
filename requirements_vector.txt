@@ -1,0 +1,14 @@
+# CPU-only dependencies for vector search chatbot
+# Fast startup, low memory, no GPU needed
+
+# Core dependencies
+sentence-transformers==2.3.1
+numpy==1.24.3
+
+# Optional: For HTTP server mode
+flask==3.0.0
+flask-cors==4.0.0
+
+# Optional: For Q&A generation with OpenAI
+# openai>=1.0.0
+
