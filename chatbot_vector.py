@@ -24,7 +24,7 @@ class VectorChatbot:
     No GPU needed, <200ms response time.
     """
     
-    def __init__(self, qa_file: str = "qa_pairs.json", model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, qa_file: str = "qa_pairs.json", model_name: str = "paraphrase-MiniLM-L3-v2"):
         """
         Initialize chatbot with Q&A pairs and embedding model.
         
@@ -39,6 +39,8 @@ class VectorChatbot:
         print(f"[INIT] Loading embedding model: {model_name}...")
         start = time.time()
         self.model = SentenceTransformer(model_name)
+        # Optimize for CPU inference
+        self.model.max_seq_length = 128  # Reduce from default 256
         print(f"[INIT] Model loaded in {time.time() - start:.2f}s")
         
         print("[INIT] Generating embeddings for questions...")
@@ -48,7 +50,9 @@ class VectorChatbot:
         self.question_embeddings = self.model.encode(
             self.questions,
             convert_to_numpy=True,
-            show_progress_bar=False
+            show_progress_bar=False,
+            batch_size=32,  # Batch processing for efficiency
+            normalize_embeddings=True  # Pre-normalize for faster similarity
         )
         print(f"[INIT] Embeddings generated in {time.time() - start:.2f}s")
         print(f"✅ Chatbot ready! {len(self.qa_pairs)} Q&As indexed.\n")
@@ -74,13 +78,18 @@ class VectorChatbot:
         Returns:
             List of (matched_question, answer, similarity_score) tuples
         """
-        # Encode user question
-        query_embedding = self.model.encode([question], convert_to_numpy=True)[0]
+        # Encode user question with optimizations
+        query_embedding = self.model.encode(
+            [question], 
+            convert_to_numpy=True,
+            show_progress_bar=False,
+            batch_size=1,
+            normalize_embeddings=True  # Pre-normalize for faster cosine similarity
+        )[0]
         
-        # Compute cosine similarity
-        similarities = np.dot(self.question_embeddings, query_embedding) / (
-            np.linalg.norm(self.question_embeddings, axis=1) * np.linalg.norm(query_embedding)
-        )
+        # Compute cosine similarity (simplified since embeddings are normalized)
+        # For normalized vectors, cosine similarity = dot product
+        similarities = np.dot(self.question_embeddings, query_embedding)
         
         # Get top-k results
         top_indices = np.argsort(similarities)[::-1][:top_k]
