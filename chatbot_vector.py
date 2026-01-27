@@ -13,6 +13,7 @@ Usage:
 import json
 import time
 import argparse
+import re
 import numpy as np
 from typing import List, Dict, Tuple
 from sentence_transformers import SentenceTransformer
@@ -104,6 +105,40 @@ class VectorChatbot:
         
         return results
     
+    def _is_greeting(self, text: str) -> bool:
+        """
+        Check if the text is a greeting without a real question.
+        
+        Args:
+            text: User's input text
+            
+        Returns:
+            True if it's just a greeting, False otherwise
+        """
+        text_lower = text.lower().strip()
+        
+        # Remove punctuation for matching
+        text_clean = re.sub(r'[^\w\s]', '', text_lower)
+        
+        # Common greetings
+        greetings = [
+            'hi', 'hello', 'hey', 'hii', 'helo', 'hiya', 'howdy',
+            'good morning', 'good afternoon', 'good evening', 'good day',
+            'greetings', 'whats up', "what's up", 'sup', 'yo',
+            'hi there', 'hello there', 'hey there'
+        ]
+        
+        # Check if entire message is just a greeting
+        if text_clean in greetings:
+            return True
+        
+        # Check if message is very short and starts with greeting
+        words = text_clean.split()
+        if len(words) <= 3 and any(text_clean.startswith(g) for g in greetings):
+            return True
+        
+        return False
+    
     def answer(self, question: str, similarity_threshold: float = 0.5) -> Dict:
         """
         Answer a question with timing information.
@@ -116,6 +151,17 @@ class VectorChatbot:
             Dict with answer, matched_question, confidence, and timing
         """
         start_time = time.time()
+        
+        # Check if it's just a greeting
+        if self._is_greeting(question):
+            total_time = time.time() - start_time
+            return {
+                "answer": "Welcome to Biplob World! How can I help you today? Feel free to ask me about our products, books, games, or anything else about Biplob World.",
+                "matched_question": None,
+                "confidence": 1.0,
+                "response_time_ms": round(total_time * 1000, 2),
+                "status": "greeting"
+            }
         
         results = self.search(question, top_k=1)
         matched_question, answer, score = results[0]

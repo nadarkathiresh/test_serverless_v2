@@ -148,7 +148,7 @@
         
         <div class="chat-box" id="chatBox">
             <div class="message answer">
-                <div>Hello! I'm here to help you learn about Biplob World. Ask me anything!</div>
+                <div>Welcome to Biplob World! How can I help you today? Feel free to ask me about our products, books, games, or anything else about Biplob World.</div>
             </div>
         </div>
         

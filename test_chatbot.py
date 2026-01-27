@@ -7,8 +7,10 @@ from chatbot_vector import VectorChatbot
 print("🔄 Initializing chatbot...")
 chatbot = VectorChatbot(qa_file="qa_pairs.json")
 
-# Test questions
+# Test questions (including greetings)
 test_questions = [
+    "Hi",
+    "Hello there",
     "Who founded Biplob World?",
     "What is Biplob the Bumblebee?",
     "What age groups does Biplob World cater to?",
